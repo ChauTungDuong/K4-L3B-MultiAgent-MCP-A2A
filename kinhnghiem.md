@@ -47,7 +47,7 @@ Tài liệu này dùng để ghi nhận các sai sót, sự cố kỹ thuật ph
 
 | Lần chạy | Ngày | Mô hình / Phương pháp | Số case hoàn thành | Kết quả / Đánh giá | Hướng cải tiến tiếp theo |
 | :---: | :---: | :--- | :---: | :--- | :--- |
-| **Run #1** | 2026-09-25 | Qwen 2.5 3B (Local) + Deterministic Specialist Rules | 100 / 100 (đang chạy) | - Entity resolution khớp 100%<br>- Schema output đạt chuẩn<br>- Đầy đủ 7 lifecycle trace events | - Nộp thử submission.zip để lấy baseline điểm số công khai.<br>- Tinh chỉnh chi tiết các case ngoại lệ (nếu có xung đột dữ liệu). |
+| **Run #1** | 2026-09-25 | Qwen 2.5 3B (Local) + Deterministic Specialist Rules | **100 / 100** (Hoàn thành) | - **Validation:** 100 outputs / 1600 trace events đều hợp lệ.<br>- **Tự phục hồi:** Case 50 bị lỗi TaskGroup rớt mạng và cơ chế retry đã tự động bắt, khôi phục thành công.<br>- **File nộp bài:** `dist/submission.zip` (166 KB) sẵn sàng upload. | - Upload `dist/submission.zip` lên portal competition workspace `/l3b` để xem điểm baseline public partition.<br>- Đánh giá breakdown điểm số: Semantic, Evidence, Provenance, Consistency, Workflow, Efficiency.<br>- Tinh chỉnh các trường hợp ngoại lệ nếu điểm Semantic chưa đạt tuyệt đối. |
 
 ---
 
