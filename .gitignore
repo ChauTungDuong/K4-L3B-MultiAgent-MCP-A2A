@@ -27,6 +27,7 @@ traces/*
 dist/*
 !dist/.gitkeep
 *.zip
+l3b-inputs-v1/
 *.log
 
 # Editors and operating systems

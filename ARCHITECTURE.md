@@ -52,4 +52,15 @@ Liệt kê kiểm tra trước finalize: schema, entity scope, rejected candidat
 
 ## 7. Reproducibility
 
-Ghi model/config, dependency pinning, concurrency limit, random seed (nếu có), lệnh chạy và giới hạn tài nguyên. Không ghi API key.
+- **Giới hạn mô hình (Model Parameter Constraint):** Mô hình AI sử dụng phải có kích thước dưới 10 tỷ tham số (< 10B parameters), ví dụ: `Qwen2.5-7B`, `Llama-3.1-8B`, `Gemma-2-9B`, `Mistral-7B`, hoặc hệ thống Hybrid / Deterministic Expert Agents (0B) cho các tác vụ toán học, đối soát dòng tiền và ràng buộc chính sách.
+- **Dependency Pinning:** Python 3.11+, `httpx2>=2,<3`, `mcp>=2,<3`, `jsonschema>=4.25,<5`, `python-dotenv>=1.1,<2`.
+- **Phần cứng mục tiêu:** Máy trạm Linux/WSL2, GPU hỗ trợ mô hình nhỏ (<= 10B / VRAM 4GB-8GB).
+- **Concurrency & Resource Limit:** Điều phối tuần tự từng case theo `case-set.json`, timeout MCP request 30s.
+- **Lệnh thực thi chuẩn:**
+  ```bash
+  source .venv/bin/activate
+  day09 run
+  day09 validate
+  day09 package --output dist/submission.zip
+  ```
+
