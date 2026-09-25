@@ -37,9 +37,9 @@ Tài liệu này dùng để ghi nhận các sai sót, sự cố kỹ thuật ph
   2. Mặc định `read timeout` trong `mcp_gateway.py` để tới 300 giây (5 phút), khiến socket bị treo quá lâu khi rớt gói tin.
   3. `CancelledError` và `BaseExceptionGroup` trong Python kế thừa từ `BaseException` chứ không phải `Exception`, nên khối `except Exception:` trong vòng lặp không bắt được để retry.
 - **Cách khắc phục:**
-  1. Giảm timeout kết nối xuống mức hợp lý (30 giây) trong `mcp_gateway.py` để phát hiện lỗi nhanh và không treo.
-  2. Nâng cấp khối `except (Exception, asyncio.CancelledError, BaseExceptionGroup):` trong `src/student_agent/cli.py`.
-  3. Bổ sung cơ chế tự động khôi phục kết nối (`get_gateway()`) và rollback trace buffer (`fp.truncate(checkpoint)`) để case được thử lại hoàn toàn sạch sẽ, không trùng lặp sự kiện trong `traces/trace.jsonl`.
+  1. Giảm timeout kết nối xuống mức hợp lý (30 giây) trong `mcp_gateway.py` để phát hiện lỗi nhanh và không treo socket.
+  2. **Cô lập Cancel Scope:** Đặt `async with connect_gateway(...)` bên trong phạm vi từng case (per-case session context manager). Khi xảy ra rớt mạng, context manager `__aexit__` sẽ tự động đóng TaskGroup của AnyIO, giải phóng hoàn toàn Cancel Scope trước khi rơi vào khối `except`. Nhờ đó, `await asyncio.sleep(2)` và lần kết nối lại ở attempt tiếp theo chạy trên môi trường hoàn toàn mới và sạch sẽ, không bị lây nhiễm `CancelledError`.
+  3. Bổ sung cơ chế rollback trace buffer (`fp.truncate(checkpoint)`) để case được thử lại sạch sẽ, không sinh sự kiện trùng lặp trong `traces/trace.jsonl`.
 
 ---
 

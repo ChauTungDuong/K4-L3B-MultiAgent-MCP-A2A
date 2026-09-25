@@ -41,29 +41,14 @@ async def _run(root: Path) -> None:
     trace = TraceWriter(trace_path, contracts)
 
     total_cases = len(case_set.case_ids)
-    gateway_cm = None
-    gateway = None
-
-    async def get_gateway():
-        nonlocal gateway_cm, gateway
-        if gateway_cm is not None:
+    for idx, case_id in enumerate(case_set.case_ids, 1):
+        print(f"[{idx:03d}/{total_cases}] Processing {case_id}...", flush=True)
+        case = case_set.cases[case_id]
+        max_retries = 3
+        for attempt in range(max_retries):
+            checkpoint = trace_path.stat().st_size if trace_path.exists() else 0
             try:
-                await gateway_cm.__aexit__(None, None, None)
-            except Exception:
-                pass
-        gateway_cm = connect_gateway(settings.mcp_endpoint, settings.team_api_key, contracts)
-        gateway = await gateway_cm.__aenter__()
-        return gateway
-
-    await get_gateway()
-    try:
-        for idx, case_id in enumerate(case_set.case_ids, 1):
-            print(f"[{idx:03d}/{total_cases}] Processing {case_id}...", flush=True)
-            case = case_set.cases[case_id]
-            max_retries = 3
-            for attempt in range(max_retries):
-                checkpoint = trace_path.stat().st_size if trace_path.exists() else 0
-                try:
+                async with connect_gateway(settings.mcp_endpoint, settings.team_api_key, contracts) as gateway:
                     trace.emit(case_id=case_id, event_type="case_received", actor="coordinator")
                     output = await solve_case(case, gateway, trace)
                     contracts.validate_output(output, f"outputs/{case_id}.json")
@@ -77,24 +62,17 @@ async def _run(root: Path) -> None:
                     temporary.replace(target)
                     trace.emit(case_id=case_id, event_type="case_finalized", actor="coordinator")
                     break
-                except (Exception, asyncio.CancelledError, BaseExceptionGroup) as exc:
-                    if trace_path.exists():
-                        with trace_path.open("a", encoding="utf-8") as fp:
-                            fp.truncate(checkpoint)
-                    print(
-                        f"  Warning: error on {case_id} (attempt {attempt+1}/{max_retries}): {exc}. Reconnecting...",
-                        flush=True,
-                    )
-                    if attempt == max_retries - 1:
-                        raise
-                    await asyncio.sleep(2)
-                    await get_gateway()
-    finally:
-        if gateway_cm is not None:
-            try:
-                await gateway_cm.__aexit__(None, None, None)
-            except Exception:
-                pass
+            except Exception as exc:
+                if trace_path.exists():
+                    with trace_path.open("a", encoding="utf-8") as fp:
+                        fp.truncate(checkpoint)
+                print(
+                    f"  Warning: error on {case_id} (attempt {attempt+1}/{max_retries}): {exc}. Retrying in 2s...",
+                    flush=True,
+                )
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(2)
 
 
 def parser() -> argparse.ArgumentParser:
