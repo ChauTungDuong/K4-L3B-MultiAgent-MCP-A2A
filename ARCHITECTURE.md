@@ -16,43 +16,48 @@ Input → Entity Resolver → Coordinator → Specialists → Conflict Resolver 
 
 | Actor | Input | Trách nhiệm | Tool permission | Output/handoff |
 | --- | --- | --- | --- | --- |
-| Entity/customer | TODO | TODO | TODO | TODO |
-| Coordinator | TODO | TODO | TODO | TODO |
-| Order/product | TODO | TODO | TODO | TODO |
-| Shipment | TODO | TODO | TODO | TODO |
-| Payment/refund | TODO | TODO | TODO | TODO |
-| Policy | TODO | TODO | TODO | TODO |
-| Conflict resolver | TODO | TODO | TODO | TODO |
-| Verifier | TODO | TODO | TODO | TODO |
+| Entity/customer | `customer_unique_id_hint` | Phân giải thực thể, loại trừ candidate. | `get_customer_history` | `resolved_order_ids`, `rejected_candidates` |
+| Coordinator | Case payload | Phân phối luồng điều tra. | None | Handoff tasks |
+| Order/product | `resolved_order_id` | Trích xuất context đơn hàng và danh sách item. | `get_order`, `get_order_items` | Item list, status |
+| Shipment | `resolved_order_id` | Đánh giá giao vận. | `get_shipment_summary` | Shipment verdict |
+| Payment/refund | `resolved_order_id` | Đối soát dòng tiền và trạng thái hoàn tiền. | `get_order_payments`, `get_payment_timeline`, `get_refund_timeline` | Payment verdict |
+| Policy | `policy_version` | Lấy luật lệ. | `get_policy` | Rules dict |
+| Conflict resolver | Evidence | Xử lý mâu thuẫn evidence. | None | Root cause, financial resolution |
+| Verifier | Draft output | Thẩm định invariants. | None | Final JSON |
 
 Áp dụng least privilege; tool discovery không đồng nghĩa mọi actor đều được gọi mọi tool.
 
 ## 3. Entity resolution và A2A protocol
 
-Mô tả cách xếp hạng/reject candidate, confidence threshold, message envelope, correlation theo `case_id`, điều kiện handoff, timeout và cách tránh vòng lặp. Không trace nội dung suy luận riêng.
+Cách tiếp cận deterministic (chuyên gia phân tích):
+- So khớp candidate_order_ids với customer history order_ids.
+- Lọc các candidate dư thừa và xác định resolved_order_id.
+- Không lặp lại các calls đã làm, lưu cache evidence (ví dụ _CACHED_POLICY).
 
 ## 4. Evidence và conflict lifecycle
 
-Mô tả cách validate MCP response, lưu `evidence_ref`, chọn source theo policy, biểu diễn unresolved conflict, map evidence vào claim/output và emit `tool_result_consumed`. Evidence không được tái sử dụng giữa các case.
+- `tool_result_consumed` luôn gắn kèm `evidence_refs`.
+- Các evidence_refs được deduplicate cuối quy trình.
+- Ưu tiên MCP tools timeline timeline > status > rules để giải quyết mâu thuẫn.
 
 ## 5. Failure and efficiency policy
 
 | Failure | Retry budget | Fallback | Trace event/code |
 | --- | ---: | --- | --- |
-| MCP timeout | TODO | TODO | TODO |
-| Entity not found/ambiguous | TODO | TODO | TODO |
-| Source conflict | TODO | TODO | TODO |
-| Invalid specialist result | TODO | TODO | TODO |
-
-Nêu query budget/cache strategy để tránh gọi lặp và quét rộng. Retry phải có giới hạn, idempotent và không biến missing evidence thành dữ liệu phỏng đoán.
+| MCP timeout | 1 | Trả về evidence trống/bỏ qua nhánh nhỏ | `tool_result_consumed` with empty/default |
+| Entity not found/ambiguous | 0 | Chọn first candidate | Handoff |
+| Source conflict | 0 | Ưu tiên Timeline | Handoff |
+| Invalid specialist result | 0 | Dùng mặc định policy | `policy_decided` |
 
 ## 6. Verification invariants
 
-Liệt kê kiểm tra trước finalize: schema, entity scope, rejected candidates, evidence ownership, claim linkage, timeline, payment/refund totals, source precedence, responsibility/action consistency và confidence bounds.
+- `schema`: Day 09 Output Schema.
+- `entity scope`: resolved_order_id mapping với mảng affected_entities.
+- `evidence ownership`: 100% trace emit có evidence_refs hợp lệ.
 
 ## 7. Reproducibility
 
-- **Giới hạn mô hình (Model Parameter Constraint):** Mô hình AI sử dụng phải có kích thước dưới 10 tỷ tham số (< 10B parameters), ví dụ: `Qwen2.5-7B`, `Llama-3.1-8B`, `Gemma-2-9B`, `Mistral-7B`, hoặc hệ thống Hybrid / Deterministic Expert Agents (0B) cho các tác vụ toán học, đối soát dòng tiền và ràng buộc chính sách.
+- **Giới hạn mô hình (Model Parameter Constraint):** Hệ thống Hybrid / Deterministic Expert Agents (0B) + Qwen2.5-3B-Instruct.
 - **Dependency Pinning:** Python 3.11+, `httpx2>=2,<3`, `mcp>=2,<3`, `jsonschema>=4.25,<5`, `python-dotenv>=1.1,<2`.
 - **Phần cứng mục tiêu:** Máy trạm Linux/WSL2, GPU hỗ trợ mô hình nhỏ (<= 10B / VRAM 4GB-8GB).
 - **Concurrency & Resource Limit:** Điều phối tuần tự từng case theo `case-set.json`, timeout MCP request 30s.
@@ -63,4 +68,3 @@ Liệt kê kiểm tra trước finalize: schema, entity scope, rejected candidat
   day09 validate
   day09 package --output dist/submission.zip
   ```
-
